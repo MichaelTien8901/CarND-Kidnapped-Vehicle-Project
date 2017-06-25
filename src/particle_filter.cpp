@@ -24,7 +24,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-	const int NUM_PARTICLES = 1000;
+	const int NUM_PARTICLES = 100;
 	default_random_engine gen;
 
 	num_particles = NUM_PARTICLES;
@@ -48,13 +48,19 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 	default_random_engine gen;
+	const double EPSILON = 0.000001;
 	normal_distribution<double> dist_x(0, std_pos[0]);
 	normal_distribution<double> dist_y(0, std_pos[1]);
 	normal_distribution<double> dist_theta(0, std_pos[2]);	
 	for (int i = 0; i < num_particles; i++) {
 		double theta = particles[i].theta;
-		particles[i].x += velocity / yaw_rate * (sin(theta + yaw_rate*delta_t) - sin(theta)) + dist_x(gen);
-		particles[i].y += velocity / yaw_rate * (cos(theta) - cos(theta + yaw_rate*delta_t)) + dist_y(gen);
+		if ( fabs(yaw_rate) >=EPSILON) {
+			particles[i].x += velocity / yaw_rate * (sin(theta + yaw_rate*delta_t) - sin(theta)) + dist_x(gen);
+			particles[i].y += velocity / yaw_rate * (cos(theta) - cos(theta + yaw_rate*delta_t)) + dist_y(gen);
+		} else {
+			particles[i].x += velocity * delta_t * cos(theta) + dist_x(gen);
+			particles[i].y += velocity * delta_t * sin(theta) + dist_y(gen);
+		}
 		particles[i].theta += yaw_rate * delta_t + dist_theta(gen);
 	}
 }
@@ -92,7 +98,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
-
+	weights.clear();
 	for(int i = 0; i < num_particles; i ++) {
 		Particle p = particles[i];
 
@@ -117,7 +123,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			LandmarkObs transformed_obs;
 
 			transformed_obs.x = p.x + observations[j].x * cos(p.theta) - observations[j].y * sin(p.theta);
-			transformed_obs.y = p.y + observations[j].y * sin(p.theta) + observations[j].y * cos(p.theta);
+			transformed_obs.y = p.y + observations[j].x * sin(p.theta) + observations[j].y * cos(p.theta);
 			transformed_observation.push_back(transformed_obs);
 		}
 		// Association
@@ -129,7 +135,6 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		double std_x = std_landmark[0];
 		double std_y = std_landmark[1];
 		p.weight = 1.0;
-		weights.clear();
 		for ( int k = 0; k < transformed_observation.size(); k++ ) {
 			// extract id from index
 			double x = transformed_observation[k].x;
@@ -148,6 +153,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			double probability = 1 / (2 * M_PI * std_x * std_y) * exp(-((x-ux)*(x-ux)/(2*std_x*std_x) + (y-uy)*(y-uy)/(2*std_y*std_y)));
 			p.weight *= probability;
 		}
+		particles[i].weight = p.weight;
 		weights.push_back(p.weight);
 		SetAssociations( p, associations, sense_x, sense_y);
 	}
