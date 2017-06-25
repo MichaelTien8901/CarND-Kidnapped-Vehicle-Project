@@ -64,7 +64,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 		particles[i].theta += yaw_rate * delta_t + dist_theta(gen);
 	}
 }
-
+inline double dist2(double x1, double y1, double x2, double y2) 
+{
+	return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+}		
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
@@ -74,7 +77,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 		double min_dist;
 		int id;
 		for ( int j = 0; j < predicted.size(); j ++) {
-			double distance_ij = dist( observations[i].x, observations[i].y, predicted[j].x, predicted[j].y );
+//			double distance_ij = dist( observations[i].x, observations[i].y, predicted[j].x, predicted[j].y );
+			double distance_ij = dist2( observations[i].x, observations[i].y, predicted[j].x, predicted[j].y );
 			if (( j == 0)|| (distance_ij < min_dist)) {
 				//id = predicted[j].id;
 				// save index only, not id
@@ -107,7 +111,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 		for(int k = 0; k < map_landmarks.landmark_list.size(); k++) {
 			Map::single_landmark_s landmark = map_landmarks.landmark_list[k];
 
-			if ( dist(p.x, p.y, landmark.x_f, landmark.y_f ) <= sensor_range) {
+//			if ( dist(p.x, p.y, landmark.x_f, landmark.y_f ) <= sensor_range) {
+			if ( ((p.x + sensor_range) > landmark.x_f) && 
+				 ((p.x - sensor_range) < landmark.x_f) &&
+				 ((p.y + sensor_range) > landmark.y_f) &&
+				 ((p.y - sensor_range) < landmark.y_f)) {
 				LandmarkObs obj;
 
 				obj.x = landmark.x_f;
